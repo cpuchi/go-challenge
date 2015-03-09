@@ -10,34 +10,41 @@ import (
 // DecodeFile decodes the drum machine file found at the provided path
 // and returns a pointer to a parsed pattern which is the entry point to the
 // rest of the data.
-// TODO: implement
 func DecodeFile(path string) (*Pattern, error) {
 	b, readErr := ioutil.ReadFile(path)
 	if readErr != nil {
 		fmt.Println("ioutil.ReadFile failed:", readErr)
 	}
 	p := &Pattern{}
-	p.Version = fmt.Sprintf("%s", b[14:25])
+	p.Version = func(b []byte) string{
+		var s string
+		for _, value := range b {
+			if(value <= 31){
+				return s
+			}
+			s += string(value)
+		}
+		return s
+	}(b[14:25])
 	var tempo float32
 	buf := bytes.NewReader(b[46:50])
 	err := binary.Read(buf, binary.LittleEndian, &tempo)
 	if err != nil {
 		fmt.Println("binary.Read failed:", err)
 	}
-	//tracks := make([]Track, 2)
-	//for the rest->next byte is id
-	//chill until find byte > 31, grab bytes until no longer 31
-	//immediate next 16 bytes are steps
-	//repeat
-	//how to handle weird value in pattern_5? --> read each track, throw error when unexpected
 	p.Tempo = tempo
-	track, trackError := makeTrack(b[50:])
-	fmt.Println(track)
-	fmt.Println(trackError)
+	tracks := make([]Track, 0)
+	for track, nextSlice := makeTrack(b[50:]); track != nil; track, nextSlice = makeTrack(nextSlice){
+		tracks = append(tracks, *track)
+	}
+	p.Tracks = tracks
 	return p, nil
 }
 
-func makeTrack(b []byte) (*Track, error){
+func makeTrack(b []byte) (*Track, []byte){
+	if len(b) == 0 {
+		return nil, nil
+	}
 	id := int(b[0])
 	b = b[1:]
 	var instrument string
@@ -56,9 +63,13 @@ func makeTrack(b []byte) (*Track, error){
 	}(b)
 	var steps [16]bool
 	for i, value := range b[stepsStart:stepsStart+16]{
+		integer := int(value)
+		if integer != 0 && integer != 1 {
+			return nil, nil
+		}
 		steps[i] = int(value) != 0
 	}
-	return &Track{id, instrument, steps}, nil
+	return &Track{id, instrument, steps}, b[stepsStart+16:]
 }
 
 type Track struct{
@@ -80,7 +91,6 @@ func (t *Track) String() string {
 			s += "|"
 		}
 	}
-	s += "\n"
 	return s
 }
 
@@ -96,7 +106,7 @@ func (p *Pattern) String() string {
 	s := fmt.Sprintf("Saved with HW Version: %v\n", p.Version)
 	s += fmt.Sprintf("Tempo: %v\n", p.Tempo)
 	for _, track := range p.Tracks{
-		s += fmt.Sprint("%s", track)
+		s += track.String() + "\n"
 	}
 	return s
 }
