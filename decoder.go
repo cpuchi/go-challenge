@@ -24,6 +24,11 @@ func DecodeFile(path string) (*Pattern, error) {
 	if err != nil {
 		fmt.Println("binary.Read failed:", err)
 	}
+	//for the rest->next byte is id
+	//chill until find byte > 31, grab bytes until no longer 31
+	//immediate next 16 bytes are steps
+	//repeat
+	//how to handle weird value in pattern_5? --> read each track, throw error when unexpected
 	p.Tempo = tempo
 	return p, nil
 }
