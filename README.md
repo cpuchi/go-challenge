@@ -1,2 +1,3 @@
 # go-challenge
-http://golang-challenge.com/go-challenge1/
+My solution for the go-challenge
+http://golang-challenge.oorg/go-challenge1/
